@@ -3,6 +3,7 @@ import os
 import argparse
 import numpy as np
 import xml.etree.ElementTree as ET
+import copy
 
 def selective_search(img, strategy):
     """
@@ -20,9 +21,17 @@ def selective_search(img, strategy):
     #       to process after strategies are set.     #
     ##################################################
     
+    gs.setK(200)
+    gs.setSigma(0.8)
+
+    ss.addImage(img)
+
+    ss.addGraphSegmentation(gs)
+
+    curr_strategy = cv2.ximgproc.segmentation.createSelectiveSearchSegmentationStrategyColor()
 
 
-
+    ss.addStrategy(curr_strategy)
 
 
     ##################################################
@@ -66,10 +75,19 @@ def bb_intersection_over_union(boxA, boxB):
     # TODO: Implement the IoU function               #
     ##################################################
     
+    x0_intersect= max(boxA[0],boxB[0])
+    y0_intersect= max(boxA[1],boxB[1])
 
+    x1_intersect= min(boxA[2],boxB[2])
+    y1_intersect= min(boxA[3],boxB[3])
 
+    if x0_intersect >= x1_intersect or y0_intersect >= y1_intersect:
+        iou = 0.0
+    else:
+        S_intersect= (y1_intersect-y0_intersect)*(x1_intersect-x0_intersect)
+        S_union = (boxA[2]-boxA[0])*(boxA[3]-boxA[1])+(boxB[2]-boxB[0])*(boxB[3]-boxB[1])-S_intersect
 
-
+        iou = S_intersect/S_union
 
     ##################################################
     # End of TODO                                    #
@@ -83,17 +101,16 @@ def visualize(img, boxes, color):
     @param boxes The box list
     @param color The color
     """
+
+
     for box in boxes:
         ##################################################
         # TODO: plot the rectangles with given color in  #
         #       the img for each box.                    #
         ##################################################
-        
 
-
-
-
-
+        img= cv2.rectangle(img, (box[0],box[1]),(box[2],box[3]),color, 2)
+    
         ##################################################
         # End of TODO                                    #
         ##################################################
@@ -108,6 +125,7 @@ def main():
     img_dir = './HW2_Data/JPEGImages'
     anno_dir = './HW2_Data/Annotations'
     thres = .5
+    
 
     
 
@@ -124,12 +142,10 @@ def main():
         ##################################################
         # TODO: Load the image with OpenCV               #
         ##################################################
-        img = None
-        
-
-
-
-
+        img = cv2.imread(img_name)
+        print("\n type( img ): ", type(img))
+        print("\n img.shape: ", img.shape)
+        print("\n img.dtype: ", img.dtype)
 
         ##################################################
         # End of TODO                                    #
@@ -149,13 +165,26 @@ def main():
         #       store the one with biggest IoU.          #
         ##################################################
         
+        for gt_bb in gt_bboxes:
+            largest_iou = 0
+            proposed_box= []
 
+            for proposal in proposals:
+                # proposal[0]= max(0, proposal[0])
+                # proposal[1]= max(0, proposal[0])
+                # proposal[2] = min(img.shape[1],proposal[2])
+                # proposal[3] = min(img.shape[0], proposal[3])
 
+                curr_iou = bb_intersection_over_union(proposal, gt_bb)
 
+                if curr_iou >= max(0.5, largest_iou):
+                    largest_iou = curr_iou
+                    proposed_box = copy.deepcopy(proposal)
+                    print(curr_iou)
 
-
-
-        
+            if proposed_box: 
+                iou_bboxes.append(proposed_box)
+                print("Large: ",largest_iou)
 
         ##################################################
         # End of TODO                                    #
@@ -174,7 +203,13 @@ def main():
         #       or save the image for report.            #
         ##################################################
         
-
+        cv2.startWindowThread()
+        cv2.namedWindow("preview")
+        cv2.imshow("preview1",vis_img); cv2.waitKey(0)
+        
+        # cv2.startWindowThread()
+        # cv2.namedWindow("preview2")
+        # cv2.imshow("preview2",vis_img); cv2.waitKey(0)
 
 
 
