@@ -2,6 +2,7 @@ import cv2
 import os
 import argparse
 import numpy as np
+import sys
 import xml.etree.ElementTree as ET
 import copy
 
@@ -25,15 +26,22 @@ def selective_search(img, strategy):
     gs.setSigma(0.8)
 
     ss.addImage(img)
-
     ss.addGraphSegmentation(gs)
 
-    curr_strategy = cv2.ximgproc.segmentation.createSelectiveSearchSegmentationStrategyColor()
-
-
-    ss.addStrategy(curr_strategy)
-
-
+    if strategy == 'color':
+        curr_strategy = cv2.ximgproc.segmentation.createSelectiveSearchSegmentationStrategyColor()
+        ss.addStrategy(curr_strategy)
+    elif strategy == 'all':
+        curr_strategy = cv2.ximgproc.segmentation.createSelectiveSearchSegmentationStrategyColor()
+        ss.addStrategy(curr_strategy)
+        curr_strategy = cv2.ximgproc.segmentation.createSelectiveSearchSegmentationStrategyTexture()
+        ss.addStrategy(curr_strategy)
+        curr_strategy = cv2.ximgproc.segmentation.createSelectiveSearchSegmentationStrategyFill()
+        ss.addStrategy(curr_strategy)
+        curr_strategy = cv2.ximgproc.segmentation.createSelectiveSearchSegmentationStrategySize()
+        ss.addStrategy(curr_strategy)
+    else: sys.exit(0)
+        
     ##################################################
     # End of TODO                                    #
     ##################################################
@@ -83,6 +91,7 @@ def bb_intersection_over_union(boxA, boxB):
 
     if x0_intersect >= x1_intersect or y0_intersect >= y1_intersect:
         iou = 0.0
+        S_intersect = 0.0
     else:
         S_intersect= (y1_intersect-y0_intersect)*(x1_intersect-x0_intersect)
         S_union = (boxA[2]-boxA[0])*(boxA[3]-boxA[1])+(boxB[2]-boxB[0])*(boxB[3]-boxB[1])-S_intersect
@@ -92,7 +101,7 @@ def bb_intersection_over_union(boxA, boxB):
     ##################################################
     # End of TODO                                    #
     ##################################################
-    return iou
+    return iou, S_intersect
 
 def visualize(img, boxes, color):
     """
@@ -125,6 +134,8 @@ def main():
     img_dir = './HW2_Data/JPEGImages'
     anno_dir = './HW2_Data/Annotations'
     thres = .5
+
+    args.strategy = input("Segmentation Strategy: 'color' or 'all'? ")
     
 
     
@@ -143,9 +154,6 @@ def main():
         # TODO: Load the image with OpenCV               #
         ##################################################
         img = cv2.imread(img_name)
-        print("\n type( img ): ", type(img))
-        print("\n img.shape: ", img.shape)
-        print("\n img.dtype: ", img.dtype)
 
         ##################################################
         # End of TODO                                    #
@@ -164,27 +172,32 @@ def main():
         #       IoU >= 0.5 with a same groundtruth bbox, #
         #       store the one with biggest IoU.          #
         ##################################################
+
+        S_total_gt_bb = 0.0
+        S_total_intersection = 0.0
         
         for gt_bb in gt_bboxes:
             largest_iou = 0
             proposed_box= []
+            S_total_gt_bb += (gt_bb[2]-gt_bb[0])*(gt_bb[3]-gt_bb[1])
 
             for proposal in proposals:
-                # proposal[0]= max(0, proposal[0])
-                # proposal[1]= max(0, proposal[0])
-                # proposal[2] = min(img.shape[1],proposal[2])
-                # proposal[3] = min(img.shape[0], proposal[3])
 
-                curr_iou = bb_intersection_over_union(proposal, gt_bb)
+                curr_iou = bb_intersection_over_union(proposal, gt_bb)[0]
 
                 if curr_iou >= max(0.5, largest_iou):
+                    S_intersect_curr = bb_intersection_over_union(proposal, gt_bb)[1]
                     largest_iou = curr_iou
                     proposed_box = copy.deepcopy(proposal)
-                    print(curr_iou)
 
             if proposed_box: 
                 iou_bboxes.append(proposed_box)
-                print("Large: ",largest_iou)
+                print("Largest IoU: ",largest_iou)
+                S_total_intersection += S_intersect_curr
+        
+        recall = S_total_intersection/S_total_gt_bb
+        print("recal: ",recall)
+        
 
         ##################################################
         # End of TODO                                    #
@@ -203,13 +216,19 @@ def main():
         #       or save the image for report.            #
         ##################################################
         
+        result_path = './Results'
         cv2.startWindowThread()
         cv2.namedWindow("preview")
-        cv2.imshow("preview1",vis_img); cv2.waitKey(0)
+        output_name = str(img_id)+"_"+str(args.strategy)+"_result.jpg"
+        cv2.imwrite(os.path.join(result_path, output_name), vis_img)
+        cv2.imshow("preview",vis_img); cv2.waitKey(0)
         
-        # cv2.startWindowThread()
-        # cv2.namedWindow("preview2")
-        # cv2.imshow("preview2",vis_img); cv2.waitKey(0)
+        cv2.startWindowThread()
+        cv2.namedWindow("preview2")
+        output_name = str(img_id)+"_proposal_"+str(args.strategy)+"_result.jpg"
+        cv2.imwrite(os.path.join(result_path, output_name), proposals_img)
+        cv2.imshow("preview2",proposals_img); cv2.waitKey(0)
+        print("Number of Proposals: ",len(proposals))
 
 
 
