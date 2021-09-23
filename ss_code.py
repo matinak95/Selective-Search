@@ -158,17 +158,21 @@ def main():
                 print("Largest IoU: ",largest_iou)
                 S_total_intersection += S_intersect_curr
         
-        recall = S_total_intersection/S_total_gt_bb
-        print("recal: ",recall)
         
         
         vis_img = img.copy()
         vis_img = visualize(vis_img, gt_bboxes, (255, 0, 0))
         vis_img = visualize(vis_img, iou_bboxes, (0, 0, 255))
 
+        recall = len(iou_bboxes)/len(gt_bboxes)
+        print("recal: ",recall)
+
+
         proposals_img = img.copy()
         proposals_img = visualize(proposals_img, gt_bboxes, (255, 0, 0))
         proposals_img = visualize(proposals_img, proposals, (0, 0, 255))
+
+
 
         
         result_path = './Results'
